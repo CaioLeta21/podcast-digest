@@ -168,6 +168,58 @@ async def _gemini_generate(api_key: str, model: str, prompt: str, max_tokens: in
 
 
 # ---------------------------------------------------------------------------
+# OpenAI-compatible backend (OpenAI, DeepSeek, Grok)
+# ---------------------------------------------------------------------------
+
+async def _openai_generate(api_key: str, model: str, prompt: str, max_tokens: int,
+                           base_url: str | None = None) -> str:
+    """Call OpenAI-compatible API (sync via thread)."""
+    from openai import OpenAI
+
+    kwargs = {"api_key": api_key}
+    if base_url:
+        kwargs["base_url"] = base_url
+    client = OpenAI(**kwargs)
+
+    loop = asyncio.get_event_loop()
+    response = await loop.run_in_executor(
+        None,
+        lambda: client.chat.completions.create(
+            model=model,
+            max_tokens=max_tokens,
+            messages=[{"role": "user", "content": prompt}],
+        ),
+    )
+    return response.choices[0].message.content
+
+
+# ---------------------------------------------------------------------------
+# Provider detection and config
+# ---------------------------------------------------------------------------
+
+PROVIDER_CONFIGS = {
+    "gemini": {"model": "gemini-2.0-flash"},
+    "claude": {"model": "claude-haiku-4-5-20251001"},
+    "openai": {"model": "gpt-4o-mini", "base_url": None},
+    "deepseek": {"model": "deepseek-chat", "base_url": "https://api.deepseek.com"},
+    "grok": {"model": "grok-3-mini-fast", "base_url": "https://api.x.ai/v1"},
+}
+
+
+def detect_provider(api_key: str) -> tuple[str, bool]:
+    """Detect provider from API key prefix. Returns (name, is_ambiguous)."""
+    if api_key.startswith("sk-ant-"):
+        return "claude", False
+    if api_key.startswith("AIza"):
+        return "gemini", False
+    if api_key.startswith("xai-"):
+        return "grok", False
+    if api_key.startswith("sk-"):
+        return "openai", True  # Could be OpenAI or DeepSeek
+    return "openai", True
+
+
+# ---------------------------------------------------------------------------
 # Provider dispatcher
 # ---------------------------------------------------------------------------
 
@@ -183,7 +235,7 @@ async def _ai_generate(config: dict, prompt: str, max_tokens: int) -> str:
             )
         model = config["gemini"].get("model", "gemini-2.0-flash")
         return await _gemini_generate(api_key, model, prompt, max_tokens)
-    else:
+    elif provider == "claude":
         api_key = config["claude"].get("api_key", "")
         if not api_key:
             raise RuntimeError(
@@ -191,6 +243,18 @@ async def _ai_generate(config: dict, prompt: str, max_tokens: int) -> str:
             )
         model = config["claude"]["model"]
         return await _claude_generate(api_key, model, prompt, max_tokens)
+    elif provider in ("openai", "deepseek", "grok"):
+        api_key = config.get(provider, {}).get("api_key", "")
+        if not api_key:
+            raise RuntimeError(
+                f"API key for {provider} not set."
+            )
+        pconf = PROVIDER_CONFIGS[provider]
+        model = config.get(provider, {}).get("model", pconf["model"])
+        base_url = pconf.get("base_url")
+        return await _openai_generate(api_key, model, prompt, max_tokens, base_url)
+    else:
+        raise RuntimeError(f"Provider nao suportado: {provider}")
 
 
 # ---------------------------------------------------------------------------

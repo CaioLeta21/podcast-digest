@@ -1121,7 +1121,7 @@ def page_history():
             st.caption(r["url"])
 
 
-def _analyze_single_video(video_url: str, video_id: str, deep: bool = False, user_api_key: str = ""):
+def _analyze_single_video(video_url: str, video_id: str, deep: bool = False, user_api_key: str = "", user_provider: str = ""):
     """Fetch info, transcript, and synthesize a single YouTube video."""
     import asyncio
     import json as json_mod
@@ -1189,13 +1189,11 @@ def _analyze_single_video(video_url: str, video_id: str, deep: bool = False, use
     # Synthesize
     channel_name = db.get_channel_name(video.channel_id)
 
-    # Override API key if user provided their own
+    # Override API key and provider if user provided their own
     if user_api_key:
-        provider = config.get("_ai_provider", config.get("ai_provider", "gemini"))
-        if provider == "gemini":
-            config.setdefault("gemini", {})["api_key"] = user_api_key
-        else:
-            config.setdefault("claude", {})["api_key"] = user_api_key
+        provider = user_provider or config.get("_ai_provider", config.get("ai_provider", "gemini"))
+        config["_ai_provider"] = provider
+        config.setdefault(provider, {})["api_key"] = user_api_key
 
     try:
         import concurrent.futures
@@ -1273,6 +1271,38 @@ def page_single_video():
             "Suas analises gratuitas acabaram. "
             "Insira sua propria API key para continuar usando."
         )
+        with st.expander("Como conseguir sua API key (gratuito ou pago)"):
+            st.markdown("""
+**Gemini (Google) — gratuito**
+1. Acesse [ai.google.dev](https://ai.google.dev/)
+2. Clique em **Get API key in Google AI Studio**
+3. Faca login com sua conta Google
+4. Clique em **Create API Key**, copie e cole abaixo
+5. O plano gratuito ja inclui uso generoso
+
+**Claude (Anthropic)**
+1. Acesse [console.anthropic.com](https://console.anthropic.com/)
+2. Crie uma conta (e-mail ou Google)
+3. Va em **API Keys** no menu lateral
+4. Clique em **Create Key**, copie e cole abaixo
+
+**OpenAI (GPT)**
+1. Acesse [platform.openai.com/api-keys](https://platform.openai.com/api-keys)
+2. Crie uma conta ou faca login
+3. Clique em **Create new secret key**, copie e cole abaixo
+
+**DeepSeek**
+1. Acesse [platform.deepseek.com](https://platform.deepseek.com/)
+2. Crie uma conta e va em **API Keys**
+3. Gere uma nova key, copie e cole abaixo
+
+**Grok (xAI)**
+1. Acesse [console.x.ai](https://console.x.ai/)
+2. Crie uma conta, va em **API Keys**
+3. Gere uma nova key, copie e cole abaixo
+
+A key e detectada automaticamente. Basta colar no campo abaixo e clicar em Analisar.
+""")
 
     url = st.text_input(
         "Link do video",
@@ -1289,14 +1319,28 @@ def page_single_video():
 
     # API key input (always visible for transparency, required after free uses)
     user_api_key = ""
+    user_provider = None
     if needs_key:
-        provider = config.get("ai_provider", "gemini")
-        provider_label = "Gemini" if provider == "gemini" else "Claude"
         user_api_key = st.text_input(
-            f"Sua API key ({provider_label})",
+            "Sua API key",
             type="password",
-            help=f"Crie sua key gratis em {'ai.google.dev' if provider == 'gemini' else 'console.anthropic.com'}",
+            help="Cole sua API key de qualquer provider: Gemini, Claude, OpenAI, DeepSeek ou Grok. A IA e detectada automaticamente.",
         )
+        if user_api_key:
+            from podcast_digest.synthesis import detect_provider
+            detected, ambiguous = detect_provider(user_api_key)
+            if ambiguous:
+                provider_choice = st.radio(
+                    "Qual provider?",
+                    ["OpenAI", "DeepSeek"],
+                    horizontal=True,
+                    key="ambiguous_provider",
+                )
+                user_provider = provider_choice.lower()
+            else:
+                labels = {"claude": "Claude", "gemini": "Gemini", "grok": "Grok"}
+                st.caption(f"Detectado: {labels.get(detected, detected)}")
+                user_provider = detected
 
     if "single_video_result" not in st.session_state:
         st.session_state.single_video_result = None
@@ -1324,7 +1368,7 @@ def page_single_video():
         progress_bar.progress(0.1)
 
         try:
-            for update in _analyze_single_video(url, video_id, deep=deep, user_api_key=user_api_key):
+            for update in _analyze_single_video(url, video_id, deep=deep, user_api_key=user_api_key, user_provider=user_provider or ""):
                 stage = update["stage"]
 
                 if stage == "info":
