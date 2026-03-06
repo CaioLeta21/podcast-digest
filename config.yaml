@@ -1,0 +1,62 @@
+ai_provider: claude
+channels:
+- id: UCzIIAGs9UiniQgKtXsgFPnQ
+  name: Fernando Ulrich
+- id: UCwZwvDC6f0WhcVTG-3aBUTQ
+  name: Market Makers
+- id: UCtvg5cXLY_tHDJeBoRySBtg
+  name: What Bitcoin Did
+- id: UCtdbWsnfA08KhSUO4amVLaQ
+  name: TFTC
+- id: UCkVBx-XpEXAgWHX5-P1hl-A
+  name: HENI OZI CUKIER
+- id: UCsy9I56PY3IngCf_VGjunMQ
+  name: Zeihan on Geopolitics
+- id: UCSzrK_HbQVEHcWrORReTkGQ
+  name: BetterMoney
+- id: UCPbMnGLeHscshhD7PAEnvbw
+  name: Preston Pysh
+processing:
+  lookback_hours: 28
+  min_duration_minutes: 5
+  transcript_languages:
+  - pt
+  - en
+  - es
+  max_parallel_synthesis: 5
+  max_transcript_chars: 80000
+  min_relevance_score: 7
+gemini:
+  model: gemini-2.5-flash
+claude:
+  model: claude-haiku-4-5-20251001
+  max_tokens_summary: 4000
+  max_tokens_synthesis: 3000
+youtube_api:
+  enabled: false
+email:
+  smtp_server: smtp.gmail.com
+  smtp_port: 587
+  use_tls: true
+  to_address: ''
+  subject_prefix: '[Podcast Digest]'
+database:
+  path: data/podcast_digest.db
+profile:
+  path: profile.md
+  feedback_context_size: 50
+tracked_people:
+- name: Ray Dalio
+- name: Doomberg
+- name: Checkmate bitcoin
+- name: Lyn Alden
+- name: Luke Gromen
+person_search:
+  enabled: true
+  max_results_per_query: 5
+  lookback_days: 14
+  min_duration_minutes: 10
+  day_of_week: 0
+logging:
+  level: INFO
+  file: data/podcast_digest.log

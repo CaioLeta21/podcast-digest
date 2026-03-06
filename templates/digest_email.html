@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: #f5f5f5;
+    color: #333;
+    margin: 0;
+    padding: 0;
+    line-height: 1.6;
+  }
+  .container {
+    max-width: 680px;
+    margin: 0 auto;
+    padding: 20px;
+  }
+  .header {
+    background: linear-gradient(135deg, #1a1a2e, #16213e);
+    color: #fff;
+    padding: 30px 24px;
+    border-radius: 12px 12px 0 0;
+    text-align: center;
+  }
+  .header h1 {
+    margin: 0;
+    font-size: 24px;
+    font-weight: 700;
+  }
+  .header .date {
+    color: #a0aec0;
+    font-size: 14px;
+    margin-top: 6px;
+  }
+  .header .stats {
+    color: #a0aec0;
+    font-size: 13px;
+    margin-top: 4px;
+  }
+  .body-wrap {
+    background: #fff;
+    padding: 24px;
+    border-radius: 0 0 12px 12px;
+    border: 1px solid #e2e8f0;
+    border-top: none;
+  }
+  .section-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: #1a1a2e;
+    margin: 28px 0 14px 0;
+    padding-bottom: 8px;
+    border-bottom: 2px solid #e2e8f0;
+  }
+  .section-title:first-child {
+    margin-top: 0;
+  }
+  .card {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 14px;
+    border-left: 4px solid #4a90d9;
+  }
+  .card.high { border-left-color: #48bb78; }
+  .card.medium { border-left-color: #ecc94b; }
+  .card.low { border-left-color: #a0aec0; }
+  .card.person { border-left-color: #805ad5; }
+  .score-badge.person { background: #805ad5; color: #fff; }
+  .person-names {
+    font-size: 13px;
+    color: #805ad5;
+    margin-bottom: 14px;
+  }
+  .card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 8px;
+  }
+  .card-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: #1a1a2e;
+    text-decoration: none;
+  }
+  .card-title:hover { text-decoration: underline; }
+  .card-channel {
+    font-size: 13px;
+    color: #718096;
+    margin-bottom: 6px;
+  }
+  .score-badge {
+    background: #48bb78;
+    color: #fff;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 12px;
+    white-space: nowrap;
+  }
+  .score-badge.medium { background: #ecc94b; color: #744210; }
+  .score-badge.low { background: #a0aec0; color: #fff; }
+  .card-summary {
+    font-size: 14px;
+    color: #4a5568;
+    margin-top: 8px;
+  }
+  .card-topics {
+    margin-top: 8px;
+  }
+  .topic-tag {
+    display: inline-block;
+    background: #edf2f7;
+    color: #4a5568;
+    font-size: 12px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    margin: 2px 4px 2px 0;
+  }
+  .card-reason {
+    font-size: 13px;
+    color: #718096;
+    font-style: italic;
+    margin-top: 8px;
+  }
+  .theme-card {
+    background: #f0f4ff;
+    border: 1px solid #c3dafe;
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 14px;
+  }
+  .theme-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: #2b6cb0;
+    margin-bottom: 6px;
+  }
+  .theme-summary {
+    font-size: 14px;
+    color: #4a5568;
+  }
+  .minimal-list {
+    list-style: none;
+    padding: 0;
+  }
+  .minimal-list li {
+    padding: 6px 0;
+    border-bottom: 1px solid #edf2f7;
+    font-size: 14px;
+  }
+  .minimal-list li:last-child { border-bottom: none; }
+  .minimal-list a {
+    color: #4a90d9;
+    text-decoration: none;
+  }
+  .minimal-list a:hover { text-decoration: underline; }
+  .no-transcript {
+    background: #fffbeb;
+    border: 1px solid #fef3c7;
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin-top: 20px;
+  }
+  .no-transcript h3 {
+    font-size: 14px;
+    color: #92400e;
+    margin: 0 0 8px 0;
+  }
+  .footer {
+    text-align: center;
+    font-size: 12px;
+    color: #a0aec0;
+    margin-top: 20px;
+    padding: 12px;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h1>Podcast Digest</h1>
+    <div class="date">{{ date }}</div>
+    <div class="stats">{{ total_channels }} canais verificados &middot; {{ total_episodes }} novos episódios</div>
+  </div>
+
+  <div class="body-wrap">
+    {% if person_episodes %}
+    <div class="section-title">Pessoas Rastreadas</div>
+    <div class="person-names">{{ person_names | join(', ') }}</div>
+    {% for ep in person_episodes | sort(attribute='relevance_score', reverse=True) %}
+    <div class="card person">
+      <div class="card-header">
+        <div>
+          <a class="card-title" href="{{ ep.url }}">{{ ep.title }}</a>
+          <div class="card-channel">{{ ep.channel_name }}{% if ep.duration_seconds %} &middot; {{ (ep.duration_seconds / 60) | int }}min{% endif %}</div>
+        </div>
+        <span class="score-badge person">{{ ep.relevance_score }}/10</span>
+      </div>
+      <div class="card-summary">{{ ep.summary }}</div>
+      <div class="card-topics">
+        {% for topic in ep.key_topics %}<span class="topic-tag">{{ topic }}</span>{% endfor %}
+      </div>
+      <div class="card-reason">{{ ep.relevance_reason }}</div>
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    {% set high = episodes | selectattr('relevance_score', 'ge', 7) | list %}
+    {% set medium = episodes | selectattr('relevance_score', 'ge', 4) | selectattr('relevance_score', 'lt', 7) | list %}
+    {% set low = episodes | selectattr('relevance_score', 'lt', 4) | list %}
+
+    {% if high %}
+    <div class="section-title">Alta Relevância</div>
+    {% for ep in high | sort(attribute='relevance_score', reverse=True) %}
+    <div class="card high">
+      <div class="card-header">
+        <div>
+          <a class="card-title" href="{{ ep.url }}">{{ ep.title }}</a>
+          <div class="card-channel">{{ ep.channel_name }}{% if ep.duration_seconds %} &middot; {{ (ep.duration_seconds / 60) | int }}min{% endif %}</div>
+        </div>
+        <span class="score-badge">{{ ep.relevance_score }}/10</span>
+      </div>
+      <div class="card-summary">{{ ep.summary }}</div>
+      <div class="card-topics">
+        {% for topic in ep.key_topics %}<span class="topic-tag">{{ topic }}</span>{% endfor %}
+      </div>
+      <div class="card-reason">{{ ep.relevance_reason }}</div>
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    {% if cross_synthesis and cross_synthesis.themes %}
+    <div class="section-title">Temas Transversais</div>
+    {% for theme in cross_synthesis.themes %}
+    <div class="theme-card">
+      <div class="theme-title">{{ theme.theme }}</div>
+      <div class="theme-summary">{{ theme.summary }}</div>
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    {% if medium %}
+    <div class="section-title">Relevância Moderada</div>
+    {% for ep in medium | sort(attribute='relevance_score', reverse=True) %}
+    <div class="card medium">
+      <div class="card-header">
+        <div>
+          <a class="card-title" href="{{ ep.url }}">{{ ep.title }}</a>
+          <div class="card-channel">{{ ep.channel_name }}{% if ep.duration_seconds %} &middot; {{ (ep.duration_seconds / 60) | int }}min{% endif %}</div>
+        </div>
+        <span class="score-badge medium">{{ ep.relevance_score }}/10</span>
+      </div>
+      <div class="card-summary">{{ ep.summary | truncate(200) }}</div>
+      <div class="card-topics">
+        {% for topic in ep.key_topics %}<span class="topic-tag">{{ topic }}</span>{% endfor %}
+      </div>
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    {% if low %}
+    <div class="section-title">Baixa Relevância</div>
+    <ul class="minimal-list">
+      {% for ep in low | sort(attribute='relevance_score', reverse=True) %}
+      <li>
+        <a href="{{ ep.url }}">{{ ep.title }}</a>
+        <span style="color: #a0aec0; font-size: 12px;">({{ ep.channel_name }}, {{ ep.relevance_score }}/10)</span>
+      </li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+
+    {% if no_transcript %}
+    <div class="no-transcript">
+      <h3>Sem transcrição disponível</h3>
+      <ul class="minimal-list">
+        {% for v in no_transcript %}
+        <li><a href="{{ v.url }}">{{ v.title }}</a> <span style="color:#a0aec0; font-size:12px;">({{ v.channel_id }})</span></li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+
+    {% if not high and not medium and not low and not no_transcript %}
+    <p style="text-align:center; color:#718096; padding: 40px 0;">Nenhum episódio novo encontrado hoje.</p>
+    {% endif %}
+  </div>
+
+  <div class="footer">
+    Gerado por podcast-digest &middot; Responda com ratings para melhorar as recomendações
+  </div>
+</div>
+</body>
+</html>
