@@ -1424,20 +1424,21 @@ A key e detectada automaticamente. Basta colar no campo abaixo e clicar em Anali
 
 def main():
     st.set_page_config(
-        page_title="Podcast Digest",
-        page_icon="🎧",
+        page_title="Video Digest" if os.getenv("PUBLIC_MODE", "").lower() in ("true", "1", "yes") else "Podcast Digest",
+        page_icon="🎬" if os.getenv("PUBLIC_MODE", "").lower() in ("true", "1", "yes") else "🎧",
         layout="wide",
     )
 
     # Sidebar navigation
-    st.sidebar.title("Podcast Digest")
-    st.sidebar.caption("Curadoria diária de podcasts via IA")
-
     public_mode = os.getenv("PUBLIC_MODE", "").lower() in ("true", "1", "yes")
 
     if public_mode:
+        st.sidebar.title("Video Digest")
+        st.sidebar.caption("Analise videos do YouTube via IA")
         page_single_video()
     else:
+        st.sidebar.title("Podcast Digest")
+        st.sidebar.caption("Curadoria diária de podcasts via IA")
         page = st.sidebar.radio(
             "Navegação",
             options=[
