@@ -1265,14 +1265,15 @@ def page_single_video():
 
     # Show usage status
     if not needs_key:
-        st.info(f"Voce tem {remaining} analise(s) gratuita(s) restante(s).")
+        st.info(f"Voce tem {remaining} analise(s) gratuita(s) restante(s). Depois, basta usar sua propria API key (Gemini, Claude, OpenAI, etc).")
     else:
         st.warning(
             "Suas analises gratuitas acabaram. "
             "Insira sua propria API key para continuar usando."
         )
-        with st.expander("Como conseguir sua API key (gratuito ou pago)"):
-            st.markdown("""
+
+    with st.expander("Como conseguir uma API key (gratuito ou pago)"):
+        st.markdown("""
 **Gemini (Google) — gratuito**
 1. Acesse [ai.google.dev](https://ai.google.dev/)
 2. Clique em **Get API key in Google AI Studio**
@@ -1317,30 +1318,30 @@ A key e detectada automaticamente. Basta colar no campo abaixo e clicar em Anali
     )
     deep = depth == "Aprofundada"
 
-    # API key input (always visible for transparency, required after free uses)
+    # API key input — always visible, optional when free uses remain
     user_api_key = ""
     user_provider = None
-    if needs_key:
-        user_api_key = st.text_input(
-            "Sua API key",
-            type="password",
-            help="Cole sua API key de qualquer provider: Gemini, Claude, OpenAI, DeepSeek ou Grok. A IA e detectada automaticamente.",
-        )
-        if user_api_key:
-            from podcast_digest.synthesis import detect_provider
-            detected, ambiguous = detect_provider(user_api_key)
-            if ambiguous:
-                provider_choice = st.radio(
-                    "Qual provider?",
-                    ["OpenAI", "DeepSeek"],
-                    horizontal=True,
-                    key="ambiguous_provider",
-                )
-                user_provider = provider_choice.lower()
-            else:
-                labels = {"claude": "Claude", "gemini": "Gemini", "grok": "Grok"}
-                st.caption(f"Detectado: {labels.get(detected, detected)}")
-                user_provider = detected
+    key_label = "Sua API key" if needs_key else "Sua API key (opcional — use para nao gastar analises gratuitas)"
+    user_api_key = st.text_input(
+        key_label,
+        type="password",
+        help="Cole sua API key de qualquer provider: Gemini, Claude, OpenAI, DeepSeek ou Grok. A IA e detectada automaticamente.",
+    )
+    if user_api_key:
+        from podcast_digest.synthesis import detect_provider
+        detected, ambiguous = detect_provider(user_api_key)
+        if ambiguous:
+            provider_choice = st.radio(
+                "Qual provider?",
+                ["OpenAI", "DeepSeek"],
+                horizontal=True,
+                key="ambiguous_provider",
+            )
+            user_provider = provider_choice.lower()
+        else:
+            labels = {"claude": "Claude", "gemini": "Gemini", "grok": "Grok"}
+            st.caption(f"Detectado: {labels.get(detected, detected)}")
+            user_provider = detected
 
     if "single_video_result" not in st.session_state:
         st.session_state.single_video_result = None
