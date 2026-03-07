@@ -1433,41 +1433,46 @@ def main():
     st.sidebar.title("Podcast Digest")
     st.sidebar.caption("Curadoria diária de podcasts via IA")
 
-    page = st.sidebar.radio(
-        "Navegação",
-        options=[
-            "Dashboard",
-            "Canais",
-            "Pessoas",
-            "Perfil de Interesses",
-            "Feedback",
-            "Configurações",
-            "Rodar Digest",
-            "Analisar Video",
-            "Historico",
-        ],
-        label_visibility="collapsed",
-    )
+    public_mode = os.getenv("PUBLIC_MODE", "").lower() in ("true", "1", "yes")
 
-    # Route to page
-    if page == "Dashboard":
-        page_dashboard()
-    elif page == "Canais":
-        page_channels()
-    elif page == "Pessoas":
-        page_people()
-    elif page == "Perfil de Interesses":
-        page_profile()
-    elif page == "Feedback":
-        page_feedback()
-    elif page == "Configurações":
-        page_settings()
-    elif page == "Rodar Digest":
-        page_run()
-    elif page == "Analisar Video":
+    if public_mode:
         page_single_video()
-    elif page == "Historico":
-        page_history()
+    else:
+        page = st.sidebar.radio(
+            "Navegação",
+            options=[
+                "Dashboard",
+                "Canais",
+                "Pessoas",
+                "Perfil de Interesses",
+                "Feedback",
+                "Configurações",
+                "Rodar Digest",
+                "Analisar Video",
+                "Historico",
+            ],
+            label_visibility="collapsed",
+        )
+
+        # Route to page
+        if page == "Dashboard":
+            page_dashboard()
+        elif page == "Canais":
+            page_channels()
+        elif page == "Pessoas":
+            page_people()
+        elif page == "Perfil de Interesses":
+            page_profile()
+        elif page == "Feedback":
+            page_feedback()
+        elif page == "Configurações":
+            page_settings()
+        elif page == "Rodar Digest":
+            page_run()
+        elif page == "Analisar Video":
+            page_single_video()
+        elif page == "Historico":
+            page_history()
 
 
 if __name__ == "__main__":
