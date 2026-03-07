@@ -1263,6 +1263,19 @@ def page_single_video():
     remaining = max(0, FREE_LIMIT - usage_count)
     needs_key = remaining == 0
 
+    url = st.text_input(
+        "Link do video",
+        placeholder="https://www.youtube.com/watch?v=...",
+    )
+
+    depth = st.radio(
+        "Profundidade da analise",
+        options=["Simples", "Aprofundada"],
+        horizontal=True,
+        help="Simples: 3-5 paragrafos. Aprofundada: 6-10 paragrafos com mais detalhes.",
+    )
+    deep = depth == "Aprofundada"
+
     # Show usage status
     if not needs_key:
         st.info(f"Voce tem {remaining} analise(s) gratuita(s) restante(s). Depois, basta usar sua propria API key (Gemini, Claude, OpenAI, etc).")
@@ -1304,19 +1317,6 @@ def page_single_video():
 
 A key e detectada automaticamente. Basta colar no campo abaixo e clicar em Analisar.
 """)
-
-    url = st.text_input(
-        "Link do video",
-        placeholder="https://www.youtube.com/watch?v=...",
-    )
-
-    depth = st.radio(
-        "Profundidade da analise",
-        options=["Simples", "Aprofundada"],
-        horizontal=True,
-        help="Simples: 3-5 paragrafos. Aprofundada: 6-10 paragrafos com mais detalhes.",
-    )
-    deep = depth == "Aprofundada"
 
     # API key input — always visible, optional when free uses remain
     user_api_key = ""
