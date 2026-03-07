@@ -1433,6 +1433,25 @@ def main():
     public_mode = os.getenv("PUBLIC_MODE", "").lower() in ("true", "1", "yes")
 
     if public_mode:
+        st.markdown("""
+        <style>
+            .back-to-home {
+                position: fixed; top: 12px; left: 12px; z-index: 999999;
+                background: #1a1610; border: 1px solid #2a2218; border-radius: 8px;
+                padding: 6px 14px; text-decoration: none; display: inline-flex;
+                align-items: center; gap: 6px; transition: all 0.2s;
+            }
+            .back-to-home:hover { border-color: #e08a3a; background: #241e16; }
+            .back-to-home span { color: #d0b898; font-size: 0.85rem; font-weight: 500; }
+            .back-to-home:hover span { color: #e08a3a; }
+            #MainMenu {visibility: hidden;}
+            footer {visibility: hidden;}
+            header {visibility: hidden;}
+        </style>
+        <a href="https://letabuild.com" class="back-to-home" target="_self">
+            <span>← letabuild.com</span>
+        </a>
+        """, unsafe_allow_html=True)
         st.sidebar.title("Video Digest")
         st.sidebar.caption("Analise videos do YouTube via IA")
         page_single_video()
