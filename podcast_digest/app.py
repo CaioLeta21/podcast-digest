@@ -1220,11 +1220,122 @@ def _analyze_single_video(video_url: str, video_id: str, deep: bool = False, use
     }
 
 
+def _analyze_podcast_episode(episode_url: str, url_type: str, deep: bool = False, user_api_key: str = "", user_provider: str = ""):
+    """Resolve, download, transcribe, and synthesize a podcast episode from Spotify or Apple Podcasts."""
+    import asyncio
+    import hashlib
+
+    env_vars = load_env()
+    os.environ.update(env_vars)
+
+    sys.path.insert(0, str(PROJECT_ROOT))
+    from podcast_digest.config import load_config
+    from podcast_digest.database import Database
+    from podcast_digest.models import Video
+    from podcast_digest.synthesis import synthesize_single_video
+    from podcast_digest.podcast_resolver import resolve_spotify, resolve_apple
+    from podcast_digest.audio_transcriber import download_audio, transcribe_audio, cleanup_audio
+
+    config = load_config()
+    db = Database(config["database"]["path"])
+
+    # Step 1: Resolve URL to episode metadata + audio URL
+    if url_type == "spotify":
+        episode = resolve_spotify(episode_url)
+    else:
+        episode = resolve_apple(episode_url)
+
+    if not episode:
+        yield {"stage": "error", "message": f"Nao foi possivel resolver o episodio. Verifique se o link esta correto."}
+        return
+
+    yield {"stage": "info", "title": episode.title, "duration": episode.duration_seconds}
+
+    # Generate a stable ID for this episode
+    video_id = "pod_" + hashlib.md5(episode.audio_url.encode()).hexdigest()[:12]
+
+    # Step 2: Download audio
+    yield {"stage": "downloading"}
+    audio_path = download_audio(episode.audio_url)
+    if not audio_path:
+        yield {"stage": "error", "message": "Falha ao baixar o audio do episodio."}
+        return
+
+    # Step 3: Transcribe
+    yield {"stage": "transcribing"}
+    try:
+        transcript = transcribe_audio(audio_path, config, user_api_key=user_api_key, user_provider=user_provider)
+    finally:
+        cleanup_audio(audio_path)
+
+    if not transcript:
+        yield {"stage": "error", "message": "Falha ao transcrever o audio. Verifique sua API key (Gemini ou OpenAI)."}
+        return
+
+    # Truncate if needed
+    max_chars = config["processing"].get("max_transcript_chars", 80000)
+    if len(transcript) > max_chars:
+        transcript = transcript[:max_chars] + "\n[... transcricao truncada]"
+
+    yield {"stage": "transcript", "language": "auto"}
+
+    # Step 4: Create Video object and synthesize
+    video = Video(
+        video_id=video_id,
+        channel_id=episode.show_name or "podcast",
+        title=episode.title,
+        published_at=__import__("datetime").datetime.now(),
+        duration_seconds=episode.duration_seconds,
+        url=episode_url,
+        transcript=transcript,
+        transcript_language="auto",
+        source="podcast",
+    )
+
+    # Save to DB
+    db.save_video(
+        video.video_id, video.channel_id, video.title, video.published_at,
+        video.duration_seconds, video.url, video.transcript, video.transcript_language,
+    )
+
+    channel_name = episode.show_name or "Podcast"
+
+    # Override API key if user provided their own
+    if user_api_key:
+        provider = user_provider or config.get("_ai_provider", config.get("ai_provider", "gemini"))
+        config["_ai_provider"] = provider
+        config.setdefault(provider, {})["api_key"] = user_api_key
+
+    try:
+        import concurrent.futures
+        with concurrent.futures.ThreadPoolExecutor() as pool:
+            result = pool.submit(
+                asyncio.run,
+                synthesize_single_video(video, config, channel_name, deep=deep)
+            ).result(timeout=120)
+    except Exception as e:
+        yield {"stage": "error", "message": f"Erro na sintese com IA: {e}"}
+        return
+
+    if not result:
+        yield {"stage": "error", "message": "Erro na sintese com IA (resultado vazio)."}
+        return
+
+    yield {
+        "stage": "done",
+        "title": result["title"],
+        "channel_name": result["channel_name"],
+        "summary": result["summary"],
+        "key_topics": result["key_topics"],
+        "duration_seconds": result["duration_seconds"],
+    }
+
+
 def page_single_video():
     st.header("Analisar Video")
 
     st.caption(
-        "Cole o link de um video do YouTube para gerar uma sintese com IA."
+        "Cole o link de um video do YouTube, episodio do Spotify ou Apple Podcasts para gerar uma sintese com IA."
     )
 
     FREE_LIMIT = 3
@@ -1264,8 +1375,8 @@ def page_single_video():
     needs_key = remaining == 0
 
     url = st.text_input(
-        "Link do video",
-        placeholder="https://www.youtube.com/watch?v=...",
+        "Link do video ou podcast",
+        placeholder="YouTube, Spotify ou Apple Podcasts",
     )
 
     depth = st.radio(
@@ -1352,33 +1463,79 @@ A key e detectada automaticamente. Basta colar no campo abaixo e clicar em Anali
             st.error("Insira sua API key para continuar.")
             return
 
-        # Extract video ID
-        m = re.search(r"(?:v=|youtu\.be/|shorts/)([A-Za-z0-9_-]{11})", url)
-        if not m:
-            st.error("URL invalida. Cole um link do YouTube valido.")
+        # Detect URL type
+        from podcast_digest.podcast_resolver import detect_url_type
+        url_type = detect_url_type(url)
+
+        if url_type == "youtube":
+            m = re.search(r"(?:v=|youtu\.be/|shorts/)([A-Za-z0-9_-]{11})", url)
+            if not m:
+                st.error("URL do YouTube invalida.")
+                return
+            video_id = m.group(1)
+        elif url_type in ("spotify", "apple"):
+            # For podcast URLs, check that user has Gemini or OpenAI key for transcription
+            has_transcription_key = False
+            if user_api_key and user_provider in ("gemini", "openai"):
+                has_transcription_key = True
+            elif os.environ.get("GEMINI_API_KEY") or load_env().get("GEMINI_API_KEY"):
+                has_transcription_key = True
+            elif os.environ.get("OPENAI_API_KEY") or load_env().get("OPENAI_API_KEY"):
+                has_transcription_key = True
+
+            if not has_transcription_key:
+                st.error(
+                    "Para analisar podcasts do Spotify/Apple, e necessario uma API key do "
+                    "**Gemini** (gratuita) ou **OpenAI** para transcrever o audio. "
+                    "Cole sua key no campo acima."
+                )
+                return
+            video_id = None  # Will be generated
+        else:
+            st.error("URL nao reconhecida. Cole um link do YouTube, Spotify ou Apple Podcasts.")
             return
 
-        video_id = m.group(1)
         st.session_state.single_video_result = None
 
         progress_bar = st.progress(0)
         stage_text = st.empty()
         detail_text = st.empty()
 
-        stage_text.info("Buscando informacoes do video...")
+        if url_type == "youtube":
+            stage_text.info("Buscando informacoes do video...")
+        else:
+            platform = "Spotify" if url_type == "spotify" else "Apple Podcasts"
+            stage_text.info(f"Resolvendo episodio do {platform}...")
+
         progress_bar.progress(0.1)
 
         try:
-            for update in _analyze_single_video(url, video_id, deep=deep, user_api_key=user_api_key, user_provider=user_provider or ""):
+            if url_type == "youtube":
+                gen = _analyze_single_video(url, video_id, deep=deep, user_api_key=user_api_key, user_provider=user_provider or "")
+            else:
+                gen = _analyze_podcast_episode(url, url_type, deep=deep, user_api_key=user_api_key, user_provider=user_provider or "")
+
+            for update in gen:
                 stage = update["stage"]
 
                 if stage == "info":
-                    title = update.get("title", video_id)
+                    title = update.get("title", "")
                     dur = update.get("duration", 0)
                     dur_str = f" ({dur // 60}min)" if dur else ""
                     progress_bar.progress(0.2)
-                    stage_text.info("Extraindo transcricao...")
+                    if url_type == "youtube":
+                        stage_text.info("Extraindo transcricao...")
+                    else:
+                        stage_text.info("Baixando audio do podcast...")
                     detail_text.caption(f"{title}{dur_str}")
+
+                elif stage == "downloading":
+                    progress_bar.progress(0.3)
+                    stage_text.info("Baixando audio do podcast...")
+
+                elif stage == "transcribing":
+                    progress_bar.progress(0.4)
+                    stage_text.info("Transcrevendo audio com IA...")
 
                 elif stage == "transcript":
                     progress_bar.progress(0.5)
